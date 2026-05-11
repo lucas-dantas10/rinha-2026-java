@@ -7,7 +7,7 @@ public record CustomerRequest(
     float avgAmount,
     @JsonProperty("tx_count_24h")
     float txCount24h,
-    @JsonProperty("known_merchant")
+    @JsonProperty("known_merchants")
     String[] knownMerchant
 ) {
 }
