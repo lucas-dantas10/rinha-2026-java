@@ -1,12 +1,15 @@
 package br.com.rinha.fraud_detection.service;
 
+import br.com.rinha.fraud_detection.dto.TransactionVector;
 import br.com.rinha.fraud_detection.dto.request.*;
+import br.com.rinha.fraud_detection.dto.response.FraudScoreResponse;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -20,11 +23,14 @@ public class FraudScoreService {
     private final static int MAX_TX_COUNT_24H = 20;
     private final static int MAX_MERCHANT_AVG_AMOUNT = 1000;
     private final static float DEFAULT_VALUE_MCC_RISK = 0.5f;
+    private static final int K = 5;
+    private static final float THRESHOLD = 0.6f;
     private final static Map<String, Float> mccRisk = new HashMap<>();
 
-    private final float[] vector = new float[14];
+    private final VectorIndexService vectorIndexService;
+//    private final float[] vector = new float[14];
 
-    public FraudScoreService() {
+    public FraudScoreService(VectorIndexService vectorIndexService) {
         mccRisk.put("5411", 0.15f);
         mccRisk.put("5812", 0.30f);
         mccRisk.put("5912", 0.20f);
@@ -35,9 +41,25 @@ public class FraudScoreService {
         mccRisk.put("4511", 0.35f);
         mccRisk.put("5311", 0.25f);
         mccRisk.put("5999", 0.50f);
+        this.vectorIndexService = vectorIndexService;
     }
 
-    public void execute(FraudScoreRequest request) {
+    public FraudScoreResponse execute(FraudScoreRequest request) {
+        float[] queryVector = getQueryVector(request);
+
+        List<TransactionVector> neighbors = vectorIndexService.search(queryVector, K);
+
+        long fraudCount = neighbors.stream()
+            .filter(v -> "fraud".equals(v.label()))
+            .count();
+
+        float fraudScore = (float) fraudCount / K;
+
+        return new FraudScoreResponse(fraudScore < THRESHOLD, fraudScore);
+    }
+
+    private float[] getQueryVector(FraudScoreRequest request) {
+        float[] vector = new float[14];
         TransactionRequest transaction = request.transaction();
         CustomerRequest customer = request.customer();
         LastTransactionRequest lastTransaction = request.lastTransaction();
@@ -82,6 +104,8 @@ public class FraudScoreService {
         vector[11] = knowMerchant ? 0 : 1;
         vector[12] = mccRisk.getOrDefault(merchant.mcc(), DEFAULT_VALUE_MCC_RISK);
         vector[13] = limit(merchant.avgAmount() / MAX_MERCHANT_AVG_AMOUNT);
+
+        return vector;
     }
 
     private float limit(float value) {

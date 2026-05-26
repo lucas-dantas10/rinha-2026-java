@@ -22,8 +22,6 @@ public class FraudScoreController {
     @PostMapping
     public ResponseEntity<FraudScoreResponse> execute(
         @RequestBody FraudScoreRequest request) {
-        fraudScoreService.execute(request);
-
-        return ResponseEntity.ok(new FraudScoreResponse(false, 1.0f));
+        return ResponseEntity.ok(fraudScoreService.execute(request));
     }
 }
