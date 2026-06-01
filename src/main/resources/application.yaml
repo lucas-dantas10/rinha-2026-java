@@ -4,3 +4,10 @@ server:
 spring:
   application:
     name: fraud_detection
+
+fraud:
+  vector-index:
+    path: references.idx
+    search-ef: 40
+    warmup-iterations: 1000
+    log-search-duration: false
